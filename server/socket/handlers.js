@@ -194,6 +194,30 @@ export const registerSocketHandlers = (io, socket) => {
     cb?.({ ok: true });
   });
 
+  socket.on("startGame", (_, cb) => {
+    const roomCode = socketRoomIndex.get(socket.id);
+    if (!roomCode) return cb?.({ ok: false, error: "No room found." });
+
+    const room = getRoomByCode(roomCode);
+    if (!room) return cb?.({ ok: false, error: "Room not found." });
+
+    if (room.hostId !== socket.id) {
+      return cb?.({ ok: false, error: "Only host can start the game." });
+    }
+
+    const result = startGame(room);
+    if (!result.ok) {
+      return cb?.(result);
+    }
+
+    clearChallengeTimer(roomCode);
+    clearSequenceTimer(roomCode);
+
+    io.to(roomCode).emit("gameStarted");
+    emitRoomToAll(io, roomCode, room);
+    cb?.({ ok: true });
+  });
+
   socket.on("removePlayer", ({ playerId }, cb) => {
     const roomCode = socketRoomIndex.get(socket.id);
     const room = getRoomByCode(roomCode);
